@@ -1,36 +1,40 @@
 using System.Text;
 
-const string logFilePath = "logs/errors.log";
-
-Directory.CreateDirectory("logs");
-
-var logger = new FileExceptionLogger(logFilePath);
-var notifier = new ConsoleAlertNotifier(logger);
-var reporter = new ExternalIncidentReporter(logger);
-var exceptionHandler = new ExceptionHandler(logger, notifier, reporter);
-
-AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+internal static class Program
 {
-    if (args.ExceptionObject is Exception exception)
+    public static void Main()
     {
-        exceptionHandler.Handle(
-            exception,
-            "UnhandledException",
-            args.IsTerminating ? ErrorSeverity.Fatal : ErrorSeverity.Error);
+        const string logFilePath = "logs/errors.log";
+
+        Directory.CreateDirectory("logs");
+
+        var logger = new FileExceptionLogger(logFilePath);
+        var notifier = new ConsoleAlertNotifier(logger);
+        var reporter = new ExternalIncidentReporter(logger);
+        var exceptionHandler = new ExceptionHandler(logger, notifier, reporter);
+
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception exception)
+            {
+                exceptionHandler.Handle(
+                    exception,
+                    "UnhandledException",
+                    args.IsTerminating ? ErrorSeverity.Fatal : ErrorSeverity.Error);
+            }
+        };
+
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            exceptionHandler.Handle(args.Exception, "UnobservedTaskException", ErrorSeverity.Fatal);
+            args.SetObserved();
+        };
+
+        var taskManager = new TaskManager();
+        var app = new TaskManagerApplication(taskManager, exceptionHandler);
+        app.Run();
     }
-};
-
-TaskScheduler.UnobservedTaskException += (_, args) =>
-{
-    exceptionHandler.Handle(args.Exception, "UnobservedTaskException", ErrorSeverity.Fatal);
-    args.SetObserved();
-};
-
-var taskManager = new TaskManager();
-var app = new TaskManagerApplication(taskManager, exceptionHandler);
-app.Run();
-
-return;
+}
 
 enum ErrorSeverity
 {
