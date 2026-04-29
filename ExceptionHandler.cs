@@ -1,20 +1,17 @@
+using System.Text;
+
 sealed class ExceptionHandler
 {
-    private readonly IExceptionLogger _logger;
-    private readonly IAlertNotifier _notifier;
-    private readonly IIncidentReporter _reporter;
+    private readonly string _logFilePath;
+    private readonly ExternalIncidentReporter _reporter;
 
-    public ExceptionHandler(
-        IExceptionLogger logger,
-        IAlertNotifier notifier,
-        IIncidentReporter reporter)
+    public ExceptionHandler(string logFilePath)
     {
-        _logger = logger;
-        _notifier = notifier;
-        _reporter = reporter;
+        _logFilePath = logFilePath;
+        _reporter = new ExternalIncidentReporter(logFilePath);
     }
 
-    public void Execute(Action operation, string context, ErrorSeverity severity)
+    public void Execute(Action operation, string context, ErrorSeverity severity = ErrorSeverity.Error)
     {
         try
         {
@@ -35,12 +32,40 @@ sealed class ExceptionHandler
             exception.Message,
             exception.StackTrace ?? "Stack trace is not available.");
 
-        _logger.Log(record);
-        _notifier.Notify(record);
+        Log(record);
+        Notify(record);
 
-        if (severity >= ErrorSeverity.Fatal)
+        if (severity == ErrorSeverity.Fatal)
         {
             _reporter.Report(record);
         }
+    }
+
+    private void Log(ExceptionLogRecord record)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"[{record.Timestamp:O}] Level: {record.Severity}");
+        builder.AppendLine($"Context: {record.Context}");
+        builder.AppendLine($"Message: {record.Message}");
+        builder.AppendLine("StackTrace:");
+        builder.AppendLine(record.StackTrace);
+        builder.AppendLine(new string('-', 80));
+
+        File.AppendAllText(_logFilePath, builder.ToString());
+    }
+
+    private void Notify(ExceptionLogRecord record)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine("!!! Ошибка !!!");
+        Console.ResetColor();
+        Console.WriteLine($"[{record.Severity}] {record.Message}");
+
+        Log(new ExceptionLogRecord(
+            DateTimeOffset.Now,
+            ErrorSeverity.Info,
+            $"{record.Context}; Notification=ConsoleAlert",
+            "Console alert was displayed for the captured exception.",
+            "N/A"));
     }
 }

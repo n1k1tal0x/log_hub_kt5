@@ -1,10 +1,10 @@
-sealed class ExternalIncidentReporter : IIncidentReporter
+sealed class ExternalIncidentReporter
 {
-    private readonly IExceptionLogger _logger;
+    private readonly string _logFilePath;
 
-    public ExternalIncidentReporter(IExceptionLogger logger)
+    public ExternalIncidentReporter(string logFilePath)
     {
-        _logger = logger;
+        _logFilePath = logFilePath;
     }
 
     public void Report(ExceptionLogRecord record)
@@ -12,11 +12,13 @@ sealed class ExternalIncidentReporter : IIncidentReporter
         var destination = "Sentry/Application Insights/Email (stub)";
         Console.WriteLine($"Critical incident routed to {destination}.");
 
-        _logger.Log(new ExceptionLogRecord(
-            DateTimeOffset.Now,
-            ErrorSeverity.Info,
-            $"{record.Context}; Notification=ExternalIncidentReporter",
-            $"Critical incident was routed to {destination}.",
-            "N/A"));
+        File.AppendAllText(
+            _logFilePath,
+            $"[{DateTimeOffset.Now:O}] Level: Info{Environment.NewLine}" +
+            $"Context: {record.Context}; Notification=ExternalIncidentReporter{Environment.NewLine}" +
+            $"Message: Critical incident was routed to {destination}.{Environment.NewLine}" +
+            "StackTrace:" + Environment.NewLine +
+            "N/A" + Environment.NewLine +
+            new string('-', 80) + Environment.NewLine);
     }
 }

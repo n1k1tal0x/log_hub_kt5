@@ -6,10 +6,7 @@ internal static class Program
 
         Directory.CreateDirectory("logs");
 
-        var logger = new FileExceptionLogger(logFilePath);
-        var notifier = new ConsoleAlertNotifier(logger);
-        var reporter = new ExternalIncidentReporter(logger);
-        var exceptionHandler = new ExceptionHandler(logger, notifier, reporter);
+        var exceptionHandler = new ExceptionHandler(logFilePath);
 
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {
